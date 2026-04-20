@@ -1,13 +1,9 @@
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --background: #f4f6f8;
+  --foreground: #1c1e21;
+  --primary: #1c1e21;
+  --primary-foreground: #ffffff;
+  --border: #ced4da;
 }
 
 html {
@@ -16,7 +12,9 @@ html {
 
 html,
 body {
-  max-width: 100vw;
+  margin: 0;
+  padding: 0;
+  width: 100%;
   overflow-x: hidden;
 }
 
@@ -24,8 +22,8 @@ body {
   min-height: 100%;
   display: flex;
   flex-direction: column;
+  background-color: var(--background);
   color: var(--foreground);
-  background: var(--background);
   font-family: Arial, Helvetica, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -33,8 +31,6 @@ body {
 
 * {
   box-sizing: border-box;
-  padding: 0;
-  margin: 0;
 }
 
 a {
@@ -42,8 +38,45 @@ a {
   text-decoration: none;
 }
 
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
-  }
+/* Global utility classes for senior-friendly accessibility */
+.btn-primary {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+  font-size: 24px; /* Large font size */
+  font-weight: bold;
+  padding: 24px;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  width: 100%; /* Easy to tap */
+  transition: transform 0.1s ease, background-color 0.2s;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.btn-primary:active {
+  transform: scale(0.98);
+}
+
+.btn-primary:hover {
+  background-color: #343a40;
+}
+
+.input-huge {
+  width: 100%;
+  font-size: 32px;
+  font-weight: bold;
+  padding: 20px;
+  border-radius: 12px;
+  border: 4px solid var(--border); /* High contrast border */
+  background-color: #ffffff;
+  color: var(--foreground);
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.input-huge:focus {
+  outline: none;
+  border-color: var(--primary);
 }
