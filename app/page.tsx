@@ -11,11 +11,18 @@ interface Car {
   duration: string;
 }
 
+interface AppliedCoupon {
+  name: string;
+  store: string;
+  time: string;
+}
+
 export default function Home() {
   const [step, setStep] = useState<Step>("INPUT");
   const [carNumber, setCarNumber] = useState("");
   const [cars, setCars] = useState<Car[]>([]);
   const [selectedCar, setSelectedCar] = useState<Car | null>(null);
+  const [appliedCoupons, setAppliedCoupons] = useState<AppliedCoupon[]>([]);
 
   // 1. 차량 검색 실제 API 연동 함수
   const handleSearch = async () => {
@@ -43,6 +50,32 @@ export default function Home() {
     }
   };
 
+  // 1.5. 차량 선택 시 기등록 쿠폰 조회
+  const handleSelectCar = async (car: Car) => {
+    setSelectedCar(car);
+    setStep("LOADING");
+
+    try {
+      const res = await fetch("/api/get-discounts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ carId: car.id })
+      });
+      
+      const data = await res.json();
+      if (res.ok && data.coupons) {
+        setAppliedCoupons(data.coupons);
+      } else {
+        setAppliedCoupons([]);
+      }
+    } catch (e) {
+      console.error("쿠폰 조회 실패", e);
+      setAppliedCoupons([]);
+    }
+
+    setStep("DISCOUNT");
+  };
+
   // 2. 할인권 등록 실제(Mock) API 연동 함수
   const handleDiscount = async (hours: number) => {
     if (!selectedCar) return;
@@ -66,7 +99,7 @@ export default function Home() {
       setStep("SUCCESS");
     } catch (e: any) {
       alert("오류 발생: " + e.message);
-      setStep("SELECT_CAR");
+      setStep("DISCOUNT");
     }
   };
 
@@ -127,7 +160,7 @@ export default function Home() {
               {cars.map((car) => (
                 <div
                   key={car.id}
-                  onClick={() => { setSelectedCar(car); setStep("DISCOUNT"); }}
+                  onClick={() => handleSelectCar(car)}
                   style={{
                     backgroundColor: "#ffffff",
                     padding: "24px",
@@ -169,6 +202,23 @@ export default function Home() {
           <div style={{ backgroundColor: "#ffffff", padding: "20px", borderRadius: "12px", marginBottom: "32px", textAlign: "center", boxShadow: "0 4px 6px rgba(0,0,0,0.05)", border: "1px solid #e9ecef" }}>
             <span style={{ fontSize: "20px", color: "#6c757d" }}>선택 차량</span>
             <div style={{ fontSize: "36px", fontWeight: "bold", marginTop: "8px" }}>{selectedCar.number}</div>
+            
+            {/* 기등록된 쿠폰 목록 리스트 */}
+            {appliedCoupons.length > 0 && (
+              <div style={{ marginTop: "16px", textAlign: "left", backgroundColor: "#f8f9fa", padding: "12px", borderRadius: "12px", border: "1px dashed #ced4da" }}>
+                <div style={{ fontSize: "14px", fontWeight: "bold", color: "#495057", marginBottom: "8px" }}>현재 적용된 할인권 내역:</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  {appliedCoupons.map((coupon, idx) => (
+                    <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "13px" }}>
+                      <span style={{ backgroundColor: "#e9ecef", color: "#495057", padding: "4px 8px", borderRadius: "6px", fontWeight: "bold" }}>
+                        {coupon.name}
+                      </span>
+                      <span style={{ color: "#868e96", marginLeft: "8px" }}>{coupon.store}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <h2 style={{ fontSize: "24px", marginBottom: "20px" }}>주차 할인권을 선택하세요</h2>
