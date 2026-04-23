@@ -3,6 +3,10 @@
 import React, { useState, useEffect } from "react";
 
 export default function RegisterPage() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [passwordInput, setPasswordInput] = useState("");
+  const [isVerifying, setIsVerifying] = useState(false);
+
   const [carList, setCarList] = useState<string[]>([]);
   const [newCarNumber, setNewCarNumber] = useState("");
 
@@ -24,10 +28,35 @@ export default function RegisterPage() {
     localStorage.setItem("vipCars", JSON.stringify(newList));
   };
 
+  const handleVerifyPassword = async () => {
+    if (!passwordInput) return;
+    setIsVerifying(true);
+
+    try {
+      const res = await fetch("/api/verify-admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: passwordInput }),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        setIsAuthenticated(true);
+      } else {
+        alert("비밀번호가 일치하지 않습니다.");
+        setPasswordInput("");
+      }
+    } catch (e) {
+      alert("서버 연결에 실패했습니다.");
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
   const handleAddCar = () => {
     const trimmed = newCarNumber.trim();
     if (trimmed.length < 4) {
-      alert("차량 번호를 정확히 입력해주세요. (예: 17머9668)");
+      alert("차량 번호를 정확히 입력해주세요. (예: 12가3456)");
       return;
     }
 
@@ -73,121 +102,189 @@ export default function RegisterPage() {
           </p>
         </header>
 
-        <div
-          style={{
-            backgroundColor: "#ffffff",
-            padding: "24px",
-            borderRadius: "16px",
-            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
-            border: "1px solid #e2e8f0",
-          }}
-        >
-          <div style={{ display: "flex", gap: "10px", marginBottom: "20px" }}>
-            <input
-              type="text"
-              placeholder="차량번호 (예: 17머9668)"
-              value={newCarNumber}
-              onChange={(e) =>
-                setNewCarNumber(e.target.value.replace(/\s/g, ""))
-              }
+        {/* 1. 인증 화면 (잠금 시) */}
+        {!isAuthenticated ? (
+          <div
+            style={{
+              backgroundColor: "#ffffff",
+              padding: "40px 24px",
+              borderRadius: "16px",
+              boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
+              border: "1px solid #e2e8f0",
+              textAlign: "center",
+            }}
+          >
+            <div style={{ fontSize: "48px", marginBottom: "16px" }}>🔒</div>
+            <h2
               style={{
-                flex: "1",
+                fontSize: "20px",
+                marginBottom: "24px",
+                color: "#495057",
+              }}
+            >
+              접근 권한이 필요합니다
+            </h2>
+            <input
+              type="password"
+              placeholder="관리자 비밀번호"
+              value={passwordInput}
+              onChange={(e) => setPasswordInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleVerifyPassword()}
+              style={{
+                width: "100%",
                 padding: "16px",
                 fontSize: "18px",
                 borderRadius: "12px",
                 border: "2px solid #dee2e6",
                 outline: "none",
+                textAlign: "center",
+                marginBottom: "16px",
                 transition: "border-color 0.2s",
               }}
               onFocus={(e) => (e.target.style.borderColor = "#1c1e21")}
               onBlur={(e) => (e.target.style.borderColor = "#dee2e6")}
-              onKeyDown={(e) => e.key === "Enter" && handleAddCar()}
             />
             <button
-              onClick={handleAddCar}
+              onClick={handleVerifyPassword}
+              disabled={isVerifying}
               style={{
-                padding: "0 24px",
+                width: "100%",
+                padding: "16px",
                 fontSize: "18px",
                 fontWeight: "bold",
-                backgroundColor: "#1c1e21",
+                backgroundColor: isVerifying ? "#adb5bd" : "#1c1e21",
                 color: "#ffffff",
                 border: "none",
                 borderRadius: "12px",
-                cursor: "pointer",
+                cursor: isVerifying ? "wait" : "pointer",
               }}
             >
-              추가
+              {isVerifying ? "확인 중..." : "인증하기"}
             </button>
           </div>
-
-          <h2
+        ) : (
+          /* 2. 관리 화면 (인증 완료 시) */
+          <div
             style={{
-              fontSize: "18px",
-              fontWeight: "bold",
-              color: "#495057",
-              marginBottom: "16px",
-              borderBottom: "1px solid #e9ecef",
-              paddingBottom: "12px",
+              backgroundColor: "#ffffff",
+              padding: "24px",
+              borderRadius: "16px",
+              boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
+              border: "1px solid #e2e8f0",
+              animation: "fadeIn 0.3s ease-in-out",
             }}
           >
-            등록된 차량 목록 ({carList.length}대)
-          </h2>
+            <div style={{ display: "flex", gap: "10px", marginBottom: "20px" }}>
+              <input
+                type="text"
+                placeholder="차량번호 (예: 12가3456)"
+                value={newCarNumber}
+                onChange={(e) =>
+                  setNewCarNumber(e.target.value.replace(/\s/g, ""))
+                }
+                style={{
+                  flex: "1",
+                  padding: "16px",
+                  fontSize: "18px",
+                  borderRadius: "12px",
+                  border: "2px solid #dee2e6",
+                  outline: "none",
+                  transition: "border-color 0.2s",
+                }}
+                onFocus={(e) => (e.target.style.borderColor = "#1c1e21")}
+                onBlur={(e) => (e.target.style.borderColor = "#dee2e6")}
+                onKeyDown={(e) => e.key === "Enter" && handleAddCar()}
+              />
+              <button
+                onClick={handleAddCar}
+                style={{
+                  padding: "0 24px",
+                  fontSize: "18px",
+                  fontWeight: "bold",
+                  backgroundColor: "#1c1e21",
+                  color: "#ffffff",
+                  border: "none",
+                  borderRadius: "12px",
+                  cursor: "pointer",
+                }}
+              >
+                추가
+              </button>
+            </div>
 
-          {carList.length === 0 ? (
-            <div
+            <h2
               style={{
-                textAlign: "center",
-                padding: "30px 0",
-                color: "#adb5bd",
+                fontSize: "18px",
+                fontWeight: "bold",
+                color: "#495057",
+                marginBottom: "16px",
+                borderBottom: "1px solid #e9ecef",
+                paddingBottom: "12px",
               }}
             >
-              등록된 등록 차량이 없습니다.
-            </div>
-          ) : (
-            <div
-              style={{ display: "flex", flexDirection: "column", gap: "10px" }}
-            >
-              {carList.map((car) => (
-                <div
-                  key={car}
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    padding: "16px",
-                    backgroundColor: "#f8f9fa",
-                    borderRadius: "8px",
-                    border: "1px solid #e9ecef",
-                  }}
-                >
-                  <span
+              등록된 차량 목록 ({carList.length}대)
+            </h2>
+
+            {carList.length === 0 ? (
+              <div
+                style={{
+                  textAlign: "center",
+                  padding: "30px 0",
+                  color: "#adb5bd",
+                }}
+              >
+                등록된 등록 차량이 없습니다.
+              </div>
+            ) : (
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "10px",
+                }}
+              >
+                {carList.map((car) => (
+                  <div
+                    key={car}
                     style={{
-                      fontSize: "20px",
-                      fontWeight: "bold",
-                      color: "#1c1e21",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: "16px",
+                      backgroundColor: "#f8f9fa",
+                      borderRadius: "8px",
+                      border: "1px solid #e9ecef",
                     }}
                   >
-                    {car}
-                  </span>
-                  <button
-                    onClick={() => handleDeleteCar(car)}
-                    style={{
-                      backgroundColor: "transparent",
-                      color: "#fa5252",
-                      border: "1px solid #fa5252",
-                      padding: "6px 12px",
-                      borderRadius: "6px",
-                      cursor: "pointer",
-                      fontWeight: "bold",
-                    }}
-                  >
-                    삭제
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+                    <span
+                      style={{
+                        fontSize: "20px",
+                        fontWeight: "bold",
+                        color: "#1c1e21",
+                      }}
+                    >
+                      {car}
+                    </span>
+                    <button
+                      onClick={() => handleDeleteCar(car)}
+                      style={{
+                        backgroundColor: "transparent",
+                        color: "#fa5252",
+                        border: "1px solid #fa5252",
+                        padding: "6px 12px",
+                        borderRadius: "6px",
+                        cursor: "pointer",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      삭제
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         <div style={{ marginTop: "30px", textAlign: "center" }}>
           <button
@@ -205,6 +302,16 @@ export default function RegisterPage() {
           </button>
         </div>
       </div>
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `,
+        }}
+      />
     </div>
   );
 }
