@@ -9,6 +9,7 @@ interface Car {
   number: string;
   entryTime: string;
   duration: string;
+  durationMins: number;
 }
 
 interface AppliedCoupon {
@@ -392,53 +393,48 @@ export default function Home() {
           </div>
 
           <h2 style={{ fontSize: "24px", marginBottom: "20px" }}>
-            주차 할인권을 선택하세요
+            주차 할인권
           </h2>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "16px",
-            }}
-          >
-            <button onClick={() => handleDiscount(2)} className="btn-primary">
-              2시간 적용
-            </button>
-            <button onClick={() => handleDiscount(3)} className="btn-primary">
-              3시간 적용
-            </button>
-            <button onClick={() => handleDiscount(4)} className="btn-primary">
-              4시간 적용
-            </button>
-            <button onClick={() => handleDiscount(5)} className="btn-primary">
-              5시간 적용
-            </button>
-          </div>
+          {(() => {
+            const totalMins = selectedCar.durationMins + 20;
+            let finalHours = Math.ceil(totalMins / 30) * 0.5;
 
-          {isVipCar && (
-            <div style={{ marginTop: "16px" }}>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "16px",
-                }}
-              >
+            if (finalHours < 1.5) finalHours = 1.5;
+
+            const maxHours = isVipCar ? 6 : 5;
+            if (finalHours > maxHours) finalHours = maxHours;
+
+            const label =
+              finalHours % 1 === 0
+                ? `${finalHours}시간 적용`
+                : `${Math.floor(finalHours)}시간 30분 적용`;
+
+            return (
+              <div style={{ textAlign: "center", marginBottom: "20px" }}>
                 <button
-                  onClick={() => handleDiscount(6)}
+                  onClick={() => handleDiscount(finalHours)}
                   className="btn-primary"
+                  style={{
+                    width: "100%",
+                    padding: "24px",
+                    fontSize: "26px",
+                    fontWeight: "bold",
+                  }}
                 >
-                  6시간 적용
+                  {label}
                 </button>
-                <button
-                  onClick={() => handleDiscount(7)}
-                  className="btn-primary"
+                <p
+                  style={{
+                    color: "#6c757d",
+                    marginTop: "12px",
+                    fontSize: "15px",
+                  }}
                 >
-                  7시간 적용
-                </button>
+                  출차 이동 시간(20분)을 포함해서 할인이 적용됩니다.
+                </p>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           <div style={{ marginTop: "40px", textAlign: "center" }}>
             <button

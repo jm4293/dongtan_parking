@@ -77,66 +77,91 @@ export async function POST(request: Request) {
     const couponsToApply = [];
     const freeCoupon = availableCoupons.find((c: any) => c.discount_name.includes("1시간 무료"));
 
-    // === [특수 하드코딩 룰: 6시간, 7시간] ===
-    if (requiredHours === 6) {
-      // 6시간: 1시간(무료) + 5시간 할인 조합
-      const coupon5 = availableCoupons.find((c: any) => c.discount_name.includes("5시간 할인") && !c.discount_name.includes("30분"));
-      
-      if (!hasFree1Hr && freeCoupon && coupon5) {
-        couponsToApply.push(freeCoupon, coupon5);
-        requiredHours = 0; // 전부 처리됨
+    const findCoupon = (hours: number) => {
+      if (hours === 0) return null;
+      if (hours % 1 === 0) {
+        return availableCoupons.find((c: any) => c.discount_name.includes(`${hours}시간 할인`) && !c.discount_name.includes("30분"));
       } else {
-        // 이미 무료권을 썼다면, 1시간 유료 + 5시간 유료 합산 시도
-        const coupon1 = availableCoupons.find((c: any) => c.discount_name.includes("1시간 할인") && !c.discount_name.includes("30분"));
-        if (coupon1 && coupon5) {
-          couponsToApply.push(coupon1, coupon5);
-          requiredHours = 0;
-        } else {
-          return NextResponse.json({ error: "[6시간] 구성을 위한 '5시간 할인' 또는 보조 쿠폰이 서버에 없거나 적용이 불가능합니다." }, { status: 400 });
-        }
+        const h = Math.floor(hours);
+        if (h === 0) return availableCoupons.find((c: any) => c.discount_name.includes(`30분 할인`));
+        return availableCoupons.find((c: any) => c.discount_name.includes(`${h}시간 30분 할인`));
+      }
+    };
+
+    // === [할인권 하드코딩 및 일반 룰 조합] ===
+    if (requiredHours === 5.5) {
+      // 5.5시간: 1시간 30분 할인 + 4시간 할인
+      const c1_5 = findCoupon(1.5);
+      const c4 = findCoupon(4);
+      if (c1_5 && c4) {
+        couponsToApply.push(c1_5, c4);
+        requiredHours = 0;
+      } else {
+        return NextResponse.json({ error: "[5.5시간] 조합을 위한 '1시간 30분' 또는 '4시간' 쿠폰이 없습니다." }, { status: 400 });
       }
     } 
+    else if (requiredHours === 6) {
+      // 6시간: 1시간 무료 + 5시간 할인
+      const c5 = findCoupon(5);
+      if (!hasFree1Hr && freeCoupon && c5) {
+        couponsToApply.push(freeCoupon, c5);
+        requiredHours = 0;
+      } else if (hasFree1Hr && c5) {
+        // 이미 무료 사용했으면 1시간 유료 + 5시간 유료 시도
+        const c1 = findCoupon(1);
+        if (c1 && c5) {
+          couponsToApply.push(c1, c5);
+          requiredHours = 0;
+        } else {
+          return NextResponse.json({ error: "[6시간] 무료권 소진 후 1시간 유료+5시간 유료 조합에 실패했습니다." }, { status: 400 });
+        }
+      } else {
+        return NextResponse.json({ error: "[6시간] 구성을 위한 '5시간 할인' 쿠폰이 없습니다." }, { status: 400 });
+      }
+    }
     else if (requiredHours === 7) {
-      // 7시간: 2시간 할인 + 5시간 할인 조핪 (무료권 여부 무시)
-      const coupon2 = availableCoupons.find((c: any) => c.discount_name.includes("2시간 할인") && !c.discount_name.includes("30분"));
-      const coupon5 = availableCoupons.find((c: any) => c.discount_name.includes("5시간 할인") && !c.discount_name.includes("30분"));
-
-      if (coupon2 && coupon5) {
-        couponsToApply.push(coupon2, coupon5);
+      // 7시간: 2시간 할인 + 5시간 할인
+      const c2 = findCoupon(2);
+      const c5 = findCoupon(5);
+      if (c2 && c5) {
+        couponsToApply.push(c2, c5);
         requiredHours = 0;
       } else {
         return NextResponse.json({ error: "[7시간] 하드코딩 쿠폰 조합(2h+5h)을 구성할 수 없습니다." }, { status: 400 });
       }
     }
-
-    // === [일반 로직: 1 ~ 5시간] ===
-    if (requiredHours > 0) {
-      // '1시간 무료'를 아직 이 차량이 하루 한도 내에서 받지 않았다면, 최대한 활용(비용 절감)
-      if (!hasFree1Hr && freeCoupon && requiredHours >= 1) {
-        const remainingHours = requiredHours - 1;
-        
-        // 혹시라도 "1시간 할인" 같은 남은 시간용 쿠폰이 매장에 있는지 미리 확인
-        const hasMatchingSplitCoupon = remainingHours === 0 || availableCoupons.some((c: any) => 
-          c.discount_name.includes(`${remainingHours}시간 할인`) && !c.discount_name.includes("30분")
-        );
-
-        // 정확하게 쪼갤 수 있을 때만 무료권 조합 (1시간 무료 + N시간 할인) 사용
-        if (hasMatchingSplitCoupon) {
+    else if (requiredHours > 0) {
+      // 1 ~ 5 시간 구간 (0.5 단위 포함)
+      if (requiredHours <= 1) {
+        if (!hasFree1Hr && freeCoupon) {
           couponsToApply.push(freeCoupon);
-          requiredHours -= 1;
+        } else if (!hasFree1Hr) {
+          const cMatch = findCoupon(requiredHours);
+          if (cMatch) couponsToApply.push(cMatch);
         }
-      }
-
-      // 남아 있는 요구 시간 적용
-      if (requiredHours > 0) {
-        const discountCoupon = availableCoupons.find((c: any) => 
-          c.discount_name.includes(`${requiredHours}시간 할인`) && !c.discount_name.includes("30분")
-        );
-
-        if (discountCoupon) {
-          couponsToApply.push(discountCoupon);
-        } else {
-          return NextResponse.json({ error: `[${requiredHours}시간] 짜리 할인권 코드를 시스템 메뉴에서 찾을 수 없습니다.` }, { status: 400 });
+      } else {
+        const paidHours = requiredHours - 1;
+        
+        if (!hasFree1Hr && freeCoupon) {
+          couponsToApply.push(freeCoupon);
+        }
+        
+        if (paidHours > 0) {
+          const cPaid = findCoupon(paidHours);
+          if (cPaid) {
+            couponsToApply.push(cPaid);
+          } else {
+            if (!hasFree1Hr && !freeCoupon) {
+              const cFull = findCoupon(requiredHours);
+              if (cFull) {
+                couponsToApply.push(cFull);
+              } else {
+                return NextResponse.json({ error: `[${requiredHours}시간] 단일 할인권도 찾을 수 없습니다.` }, { status: 400 });
+              }
+            } else {
+              return NextResponse.json({ error: `[${paidHours}시간] 추가 할인권을 찾을 수 없습니다.` }, { status: 400 });
+            }
+          }
         }
       }
     }

@@ -100,11 +100,20 @@ export async function POST(request: Request) {
         }
       }
 
+      let durationMins = 0;
+      if (c.entryDateToString) {
+        const entryStr = c.entryDateToString.replace(" ", "T") + "+09:00";
+        const entryMs = new Date(entryStr).getTime();
+        const diffMins = Math.floor((Date.now() - entryMs) / 60000);
+        if (diffMins >= 0) durationMins = diffMins;
+      }
+
       return {
         id: c.id.toString(),
         number: c.carNo,
         entryTime: c.entryDateToString,
-        duration: durationStr
+        duration: durationStr,
+        durationMins
       };
     });
 
