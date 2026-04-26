@@ -201,14 +201,15 @@ export default function Home() {
           <p
             style={{
               marginTop: "20px",
-              color: "#6c757d",
-              fontSize: "15px",
+              color: "#e03131",
+              fontSize: "18px",
               textAlign: "center",
               wordBreak: "keep-all",
               lineHeight: "1.5",
+              fontWeight: "bold",
             }}
           >
-            병원 건물 내 타 업체에서 주차 할인을 한 경우 직원에 얘기 해주세요.
+            병원 건물 내 타 업체에서 주차 할인을 한 경우 직원에게 얘기 해주세요.
           </p>
         </div>
       )}
@@ -434,26 +435,95 @@ export default function Home() {
                 ? `${finalHours}시간 적용`
                 : `${Math.floor(finalHours)}시간 30분 적용`;
 
-            const entryDate = new Date(selectedCar.entryTime.replace(" ", "T") + "+09:00");
-            const exitDate = new Date(entryDate.getTime() + finalHours * 60 * 60 * 1000);
-            const exitTimeStr = `${exitDate.getHours().toString().padStart(2, '0')}:${exitDate.getMinutes().toString().padStart(2, '0')}`;
+            const entryDate = new Date(
+              selectedCar.entryTime.replace(" ", "T") + "+09:00",
+            );
+            const exitDate = new Date(
+              entryDate.getTime() + finalHours * 60 * 60 * 1000,
+            );
+            const exitTimeStr = `${exitDate.getHours().toString().padStart(2, "0")}:${exitDate.getMinutes().toString().padStart(2, "0")}`;
 
             return (
               <div style={{ textAlign: "center", marginBottom: "20px" }}>
-                <div style={{ backgroundColor: "#f8f9fa", borderRadius: "12px", padding: "20px", marginBottom: "24px", textAlign: "left", border: "1px solid #e9ecef" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px" }}>
-                    <span style={{ color: "#495057", fontSize: "16px" }}>실제 주차시간</span>
-                    <span style={{ color: "#1c1e21", fontSize: "16px", fontWeight: "bold" }}>{selectedCar.duration}</span>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px" }}>
-                    <span style={{ color: "#495057", fontSize: "16px" }}>주차 할인시간</span>
-                    <span style={{ color: "#0056b3", fontSize: "16px", fontWeight: "bold" }}>
-                      {finalHours % 1 === 0 ? `${finalHours}시간` : `${Math.floor(finalHours)}시간 30분`}
+                <div
+                  style={{
+                    backgroundColor: "#f8f9fa",
+                    borderRadius: "12px",
+                    padding: "20px",
+                    marginBottom: "24px",
+                    textAlign: "left",
+                    border: "1px solid #e9ecef",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      marginBottom: "12px",
+                    }}
+                  >
+                    <span style={{ color: "#495057", fontSize: "16px" }}>
+                      실제 주차시간
+                    </span>
+                    <span
+                      style={{
+                        color: "#1c1e21",
+                        fontSize: "16px",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      {selectedCar.duration}
                     </span>
                   </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px dashed #ced4da", paddingTop: "12px", marginTop: "4px" }}>
-                    <span style={{ color: "#495057", fontSize: "16px", fontWeight: "bold" }}>출차 기한</span>
-                    <span style={{ color: "#fa5252", fontSize: "16px", fontWeight: "bold" }}>{exitTimeStr} 까지 출차하세요</span>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      marginBottom: "12px",
+                    }}
+                  >
+                    <span style={{ color: "#495057", fontSize: "16px" }}>
+                      주차 할인시간
+                    </span>
+                    <span
+                      style={{
+                        color: "#0056b3",
+                        fontSize: "16px",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      {finalHours % 1 === 0
+                        ? `${finalHours}시간`
+                        : `${Math.floor(finalHours)}시간 30분`}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      borderTop: "1px dashed #ced4da",
+                      paddingTop: "12px",
+                      marginTop: "4px",
+                    }}
+                  >
+                    <span
+                      style={{
+                        color: "#495057",
+                        fontSize: "16px",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      출차 기한
+                    </span>
+                    <span
+                      style={{
+                        color: "#fa5252",
+                        fontSize: "16px",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      {exitTimeStr} 까지 출차하세요
+                    </span>
                   </div>
                 </div>
 
