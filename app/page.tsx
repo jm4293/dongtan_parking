@@ -19,8 +19,28 @@ interface AppliedCoupon {
   time: string;
 }
 
+type ModalState = {
+  isOpen: boolean;
+  message: string;
+  type: "ALERT" | "CONFIRM";
+  onConfirm?: () => void;
+};
+
 export default function Home() {
   const [step, setStep] = useState<Step>("INPUT");
+  const [modal, setModal] = useState<ModalState>({
+    isOpen: false,
+    message: "",
+    type: "ALERT",
+  });
+
+  const showAlert = (message: string) => {
+    setModal({ isOpen: true, message, type: "ALERT" });
+  };
+
+  const showConfirm = (message: string, onConfirm: () => void) => {
+    setModal({ isOpen: true, message, type: "CONFIRM", onConfirm });
+  };
   const [carNumber, setCarNumber] = useState("");
   const [cars, setCars] = useState<Car[]>([]);
   const [selectedCar, setSelectedCar] = useState<Car | null>(null);
@@ -30,7 +50,7 @@ export default function Home() {
   // 1. 차량 검색 실제 API 연동 함수
   const handleSearch = async () => {
     if (carNumber.length < 2) {
-      alert("차량번호를 2자리 이상 입력해주세요.");
+      showAlert("차량번호를 2자리 이상 입력해주세요.");
       return;
     }
     setStep("LOADING");
@@ -48,7 +68,7 @@ export default function Home() {
       setCars(data.cars);
       setStep("SELECT_CAR");
     } catch (e: any) {
-      alert("검색 오류: " + e.message);
+      showAlert("검색 오류: " + e.message);
       setStep("INPUT");
     }
   };
@@ -81,6 +101,14 @@ export default function Home() {
 
       const data = await res.json();
       if (res.ok && data.coupons) {
+        // 이미 등록된 할인권이 1개 이상 존재한다면 차단
+        if (data.coupons.length > 0) {
+          showAlert(
+            "다른 업체에서 등록된 주차 할인이 있습니다. 직원에게 문의해주세요",
+          );
+          setStep("SELECT_CAR");
+          return;
+        }
         setAppliedCoupons(data.coupons);
       } else {
         setAppliedCoupons([]);
@@ -94,32 +122,34 @@ export default function Home() {
   };
 
   // 2. 할인권 등록 실제(Mock) API 연동 함수
-  const handleDiscount = async (hours: number) => {
+  const handleDiscount = (hours: number) => {
     if (!selectedCar) return;
 
-    const isConfirmed = confirm(
-      `[${selectedCar.number}] 차량에 ${hours}시간 할인권을 등록하시겠습니까?`,
+    const hoursStr = hours % 1 === 0 ? `${hours}시간` : `${Math.floor(hours)}시간 30분`;
+
+    showConfirm(
+      `[${selectedCar.number}] 차량에 ${hoursStr} 할인권을 등록하시겠습니까?`,
+      async () => {
+        setStep("LOADING");
+
+        try {
+          const res = await fetch("/api/discount", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ carId: selectedCar.id, targetHours: hours }),
+          });
+
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || "할인 등록 실패");
+
+          console.log(data.message);
+          setStep("SUCCESS");
+        } catch (e: any) {
+          showAlert("오류 발생: " + e.message);
+          setStep("DISCOUNT");
+        }
+      },
     );
-    if (!isConfirmed) return;
-
-    setStep("LOADING");
-
-    try {
-      const res = await fetch("/api/discount", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ carId: selectedCar.id, targetHours: hours }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "할인 등록 실패");
-
-      console.log(data.message);
-      setStep("SUCCESS");
-    } catch (e: any) {
-      alert("오류 발생: " + e.message);
-      setStep("DISCOUNT");
-    }
   };
 
   return (
@@ -236,18 +266,20 @@ export default function Home() {
                 padding: "40px",
               }}
             >
-              검색된 차량이 없습니다.
+              입력하신 <span style={{ color: "#1c1e21", fontWeight: "bold" }}>'{carNumber}'</span> 차량이 검색되지 않았습니다.
               <br />
               <br />
               <button
                 onClick={() => setStep("INPUT")}
                 style={{
-                  background: "transparent",
+                  width: "100%",
+                  background: "#f1f3f5",
                   color: "#495057",
-                  border: "1px solid #adb5bd",
-                  padding: "12px 24px",
+                  border: "1px solid #ced4da",
                   borderRadius: "8px",
                   fontSize: "18px",
+                  fontWeight: "bold",
+                  padding: "16px",
                   cursor: "pointer",
                 }}
               >
@@ -319,10 +351,13 @@ export default function Home() {
                 <button
                   onClick={() => setStep("INPUT")}
                   style={{
-                    background: "transparent",
-                    color: "#6c757d",
-                    border: "none",
+                    width: "100%",
+                    background: "#f1f3f5",
+                    color: "#495057",
+                    border: "1px solid #ced4da",
+                    borderRadius: "8px",
                     fontSize: "18px",
+                    fontWeight: "bold",
                     padding: "16px",
                     cursor: "pointer",
                   }}
@@ -425,15 +460,15 @@ export default function Home() {
             const totalMins = selectedCar.durationMins + 20;
             let finalHours = Math.ceil(totalMins / 30) * 0.5;
 
-            if (finalHours < 1.5) finalHours = 1.5;
+            if (finalHours < 2) finalHours = 2;
 
             const maxHours = isVipCar ? 6 : 5;
             if (finalHours > maxHours) finalHours = maxHours;
 
             const label =
               finalHours % 1 === 0
-                ? `${finalHours}시간 적용`
-                : `${Math.floor(finalHours)}시간 30분 적용`;
+                ? `${finalHours}시간 등록하기`
+                : `${Math.floor(finalHours)}시간 30분 등록하기`;
 
             const entryDate = new Date(
               selectedCar.entryTime.replace(" ", "T") + "+09:00",
@@ -463,7 +498,27 @@ export default function Home() {
                     }}
                   >
                     <span style={{ color: "#495057", fontSize: "16px" }}>
-                      실제 주차시간
+                      입차 시간
+                    </span>
+                    <span
+                      style={{
+                        color: "#1c1e21",
+                        fontSize: "16px",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      {selectedCar.entryTime}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      marginBottom: "12px",
+                    }}
+                  >
+                    <span style={{ color: "#495057", fontSize: "16px" }}>
+                      주차 시간
                     </span>
                     <span
                       style={{
@@ -483,7 +538,7 @@ export default function Home() {
                     }}
                   >
                     <span style={{ color: "#495057", fontSize: "16px" }}>
-                      주차 할인시간
+                      할인 적용 시간
                     </span>
                     <span
                       style={{
@@ -513,7 +568,7 @@ export default function Home() {
                         fontWeight: "bold",
                       }}
                     >
-                      출차 기한
+                      출차 기한 시간
                     </span>
                     <span
                       style={{
@@ -556,10 +611,13 @@ export default function Home() {
             <button
               onClick={() => setStep("SELECT_CAR")}
               style={{
-                background: "transparent",
-                color: "#6c757d",
-                border: "none",
+                width: "100%",
+                background: "#f1f3f5",
+                color: "#495057",
+                border: "1px solid #ced4da",
+                borderRadius: "8px",
                 fontSize: "18px",
+                fontWeight: "bold",
                 padding: "16px",
                 cursor: "pointer",
               }}
@@ -627,6 +685,92 @@ export default function Home() {
       `,
         }}
       />
+
+      {/* 커스텀 모달 */}
+      {modal.isOpen && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0,0,0,0.5)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 9999,
+            animation: "fadeIn 0.2s ease-out",
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "#fff",
+              padding: "32px 24px",
+              borderRadius: "16px",
+              maxWidth: "360px",
+              width: "90%",
+              boxShadow: "0 10px 25px rgba(0,0,0,0.2)",
+              textAlign: "center",
+            }}
+          >
+            <p
+              style={{
+                fontSize: "18px",
+                marginBottom: "28px",
+                wordBreak: "keep-all",
+                lineHeight: "1.5",
+                color: "#1c1e21",
+                fontWeight: "500",
+              }}
+            >
+              {modal.message}
+            </p>
+            <div
+              style={{ display: "flex", gap: "12px", justifyContent: "center" }}
+            >
+              {modal.type === "CONFIRM" && (
+                <button
+                  onClick={() => setModal({ ...modal, isOpen: false })}
+                  style={{
+                    padding: "14px 20px",
+                    border: "1px solid #ced4da",
+                    background: "#f8f9fa",
+                    color: "#495057",
+                    borderRadius: "8px",
+                    fontSize: "16px",
+                    cursor: "pointer",
+                    flex: 1,
+                    fontWeight: "bold",
+                  }}
+                >
+                  취소
+                </button>
+              )}
+              <button
+                onClick={() => {
+                  setModal({ ...modal, isOpen: false });
+                  if (modal.type === "CONFIRM" && modal.onConfirm)
+                    modal.onConfirm();
+                }}
+                style={{
+                  padding: "14px 20px",
+                  border: "none",
+                  background: "#0056b3",
+                  color: "#fff",
+                  borderRadius: "8px",
+                  fontSize: "16px",
+                  fontWeight: "bold",
+                  cursor: "pointer",
+                  flex: 1,
+                }}
+              >
+                확인
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

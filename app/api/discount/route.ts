@@ -132,12 +132,15 @@ export async function POST(request: Request) {
     }
     else if (requiredHours > 0) {
       // 1 ~ 5 시간 구간 (0.5 단위 포함)
-      if (requiredHours <= 1) {
+      if (requiredHours <= 2) {
+        // 30분, 1시간 유료 쿠폰이 없으므로, 2시간 이하는 "1시간 무료" 쿠폰 2장(총 2시간)으로 커버합니다.
         if (!hasFree1Hr && freeCoupon) {
+          couponsToApply.push(freeCoupon, freeCoupon);
+        } else if (hasFree1Hr && freeCoupon) {
+          // 이미 1장을 사용한 경우 추가로 1장만 더 적용
           couponsToApply.push(freeCoupon);
-        } else if (!hasFree1Hr) {
-          const cMatch = findCoupon(requiredHours);
-          if (cMatch) couponsToApply.push(cMatch);
+        } else {
+          return NextResponse.json({ error: `[${requiredHours}시간] '1시간 무료' 쿠폰을 찾을 수 없습니다.` }, { status: 400 });
         }
       } else {
         const paidHours = requiredHours - 1;
