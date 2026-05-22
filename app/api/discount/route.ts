@@ -119,6 +119,17 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "[6시간] 구성을 위한 '5시간 할인' 쿠폰이 없습니다." }, { status: 400 });
       }
     }
+    else if (requiredHours === 6.5) {
+      // 6.5시간: 1시간 30분 할인 + 5시간 할인
+      const c1_5 = findCoupon(1.5);
+      const c5 = findCoupon(5);
+      if (c1_5 && c5) {
+        couponsToApply.push(c1_5, c5);
+        requiredHours = 0;
+      } else {
+        return NextResponse.json({ error: "[6.5시간] 조합을 위한 '1시간 30분' 또는 '5시간' 쿠폰이 없습니다." }, { status: 400 });
+      }
+    }
     else if (requiredHours === 7) {
       // 7시간: 2시간 할인 + 5시간 할인
       const c2 = findCoupon(2);

@@ -462,7 +462,7 @@ export default function Home() {
 
             if (finalHours < 2) finalHours = 2;
 
-            const maxHours = isVipCar ? 6 : 5;
+            const maxHours = isVipCar ? 7 : 5;
             if (finalHours > maxHours) finalHours = maxHours;
 
             const label =
