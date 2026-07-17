@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
+import { createHash } from 'crypto';
 
 const AMANO_URL = "https://a00887.parkingweb.kr";
+
+// 사이트는 sha256(비밀번호)를 userPwd로 요구한다. 환경변수가 평문이면 여기서 해시한다.
+function toHashedPwd(raw: string): string {
+  return /^[0-9a-f]{64}$/i.test(raw) ? raw : createHash('sha256').update(raw).digest('hex');
+}
 
 export async function POST(request: Request) {
   try {
@@ -21,14 +27,23 @@ export async function POST(request: Request) {
     const loginParams = new URLSearchParams();
     loginParams.append('referer', '');
     loginParams.append('userId', userId);
-    loginParams.append('userPwd', userPwd);
+    loginParams.append('userPwd', toHashedPwd(userPwd));
 
     const loginRes = await fetch(`${AMANO_URL}/login`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+        'amano_http_ajax': 'true',
+        'ajax': 'true'
+      },
       body: loginParams.toString(),
       redirect: 'manual'
     });
+
+    if (loginRes.status >= 400) {
+      const loginErr = (await loginRes.text()).slice(0, 200);
+      return NextResponse.json({ error: `주차 사이트 로그인 실패 (${loginRes.status}): ${loginErr}` }, { status: 502 });
+    }
 
     const setCookieHeader = loginRes.headers.getSetCookie();
     let jsessionId = '';
