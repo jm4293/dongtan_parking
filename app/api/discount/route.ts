@@ -49,15 +49,25 @@ export async function POST(request: Request) {
     }
 
     // 2. 할인권 상태 조회 (기등록 쿠폰 및 쿠폰 ID 확보)
+    // ATS3000-20260212 업데이트 이후 사이트와 동일하게 startDate(전일 기준)를 함께 전송한다.
+    const searchDate = new Date();
+    searchDate.setHours(searchDate.getHours() + 9); // UTC -> KST
+    searchDate.setDate(searchDate.getDate() - 1);
+    const startDate = searchDate.getFullYear().toString()
+      + (searchDate.getMonth() + 1).toString().padStart(2, '0')
+      + searchDate.getDate().toString().padStart(2, '0');
+
     const getDiscountParams = new URLSearchParams();
     getDiscountParams.append('id', carId);
     getDiscountParams.append('member_id', userId);
+    getDiscountParams.append('startDate', startDate);
 
     const detailRes = await fetch(`${AMANO_URL}/discount/registration/getForDiscount`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
         'amano_http_ajax': 'true',
+        'ajax': 'true',
         'Cookie': jsessionId
       },
       body: getDiscountParams.toString()
@@ -187,34 +197,67 @@ export async function POST(request: Request) {
     }
 
     // 4. 조합된 쿠폰들을 순차적으로 서버에 Save 전송
+    // ATS3000-20260212 업데이트 이후 사이트의 theForm 직렬화와 동일한 필드(saveCnt, iCardType, acPlate2 포함)를
+    // 전송해야 하며, 서버 응답 본문이 정확히 "true"일 때만 등록 성공이다.
     const parkEntry = detailData.parkEntry;
-    
+
     for (const coupon of couponsToApply) {
       const saveParams = new URLSearchParams();
       saveParams.append('peId', parkEntry.iID);
-      saveParams.append('carNo', parkEntry.acPlate1);
       saveParams.append('discountType', coupon.id);
+      saveParams.append('saveCnt', '1');
+      saveParams.append('iCardType', parkEntry.iCardType != null ? String(parkEntry.iCardType) : '');
+      saveParams.append('carNo', parkEntry.acPlate1);
+      saveParams.append('acPlate2', '');
       saveParams.append('memo', '자동 모바일 등록');
 
-      await fetch(`${AMANO_URL}/discount/registration/save`, {
+      const saveRes = await fetch(`${AMANO_URL}/discount/registration/save`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
           'amano_http_ajax': 'true',
+          'ajax': 'true',
           'Cookie': jsessionId
         },
         body: saveParams.toString()
       });
 
+      const saveText = (await saveRes.text()).trim();
+      if (saveText !== 'true') {
+        return NextResponse.json({
+          error: `할인권(${coupon.discount_name}) 등록이 주차 서버에서 거부되었습니다. (응답: ${saveText.slice(0, 200) || '빈 응답'})`
+        }, { status: 502 });
+      }
+
       // AMANO 서버 부하 및 동시성 락 방지를 위해 500ms 대기
       await new Promise(r => setTimeout(r, 500));
+    }
+
+    // 5. 실제 반영 여부 재조회 검증: 등록 후 parkVisitCar(할인내역)에 쿠폰이 있어야 한다.
+    const verifyRes = await fetch(`${AMANO_URL}/discount/registration/getForDiscount`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+        'amano_http_ajax': 'true',
+        'ajax': 'true',
+        'Cookie': jsessionId
+      },
+      body: getDiscountParams.toString()
+    });
+    const verifyData = await verifyRes.json();
+    const registeredCount = (verifyData.parkVisitCar || []).length;
+
+    if (registeredCount < couponsToApply.length) {
+      return NextResponse.json({
+        error: `등록 요청은 접수됐지만 확인 결과 할인내역에 반영되지 않았습니다. (현재 등록 ${registeredCount}건)`
+      }, { status: 502 });
     }
 
     const appliedNames = couponsToApply.map((c: any) => c.discount_name).join(' + ');
 
     return NextResponse.json({
       success: true,
-      message: `성공! 적용된 쿠폰: ${appliedNames}`
+      message: `성공! 적용된 쿠폰: ${appliedNames} (할인내역 ${registeredCount}건 확인됨)`
     });
 
   } catch (err: any) {
